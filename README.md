@@ -13,9 +13,11 @@ For example, the subordinate would handle the `keystone-middleware.connected` st
 with something like:
 
 ```python
-@reactive.when('keystone-middleware.connected')
-def configure_keystone_middleware(principle):
+@when('endpoint.keystone-middleware.connected',
+      'ico.installed')
+def configure_keystone_middleware():
     with provide_charm_instance() as charm_class:
+        charm_class.render_keystone_paste_ini(True)
         middleware_configuration = {
             "authentication": {
                 "simple_token_header": "SimpleToken",
@@ -23,16 +25,21 @@ def configure_keystone_middleware(principle):
             },
             "auth": {
                 "methods": "external,password,token,oauth1",
-                "external": "keystone.auth.plugins.external.Domain",
                 "password": "keystone.auth.plugins.password.Password",
                 "token": "keystone.auth.plugins.token.Token",
                 "oauth1": "keystone.auth.plugins.oauth1.OAuth"
             }
         }
-        principle.configure_principal(
+        if config('multi-tenancy'):
+            middleware_configuration['auth'].update(
+                {"external": "keystone.auth.plugins.external.Domain"
+                 })
+        principal_keystone = \
+            endpoint_from_flag('endpoint.keystone-middleware.connected')
+
+        principal_keystone.configure_principal(
             middleware_name=charm_class.service_name,
             configuration=middleware_configuration)
-    reactive.set_state('ico.configured')
 ```
 
 # metadata
